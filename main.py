@@ -1,7 +1,8 @@
 import pandas
 import matplotlib.pyplot as plt
 import numpy
-from datetime import date, datetime
+from datetime import datetime
+from sklearn.linear_model import LinearRegression
 
 
 def main():
@@ -17,13 +18,12 @@ def main():
     prepared_data = data.to_numpy()
 
     # ----Приведение данных к массивам (дата, максимальная, минимальная и разница цен)----
+    # Разница цен
     prices = list()
     dates = list()
+    temp_list = list()
 
     cur_date = prepared_data[0][0].split()
-    max_price = float(prepared_data[0][1].replace(',', '.'))
-    min_price = float(prepared_data[0][1].replace(',', '.'))
-
     dates.append(datetime.strptime(cur_date[0], '%m/%d/%Y'))
 
     for i, j in prepared_data:
@@ -31,37 +31,31 @@ def main():
             # Разделяем строку на дату и время
             i = i.split()
 
-            j = float(j.replace(',', '.'))
-
             if i[0] != cur_date[0]:
-                prices.append(max_price - min_price)
+                prices.append(max(temp_list) - min(temp_list))
                 dates.append(datetime.strptime(i[0], '%m/%d/%Y'))
 
-                min_price = j
-                max_price = j
                 cur_date = i
+                temp_list.clear()
 
-            if j > max_price:
-                max_price = j
-
-            if j < min_price:
-                min_price = j
+            temp_list.append(float(j.replace(',', '.')))
     # ---------------------------------------------------------------------------------------------
 
     # ----Нахождение коэффициента корреляции между временем суток и ценой на электроэнергию----
     time = list()
-    prices_per_day = list()
-    t_array = list()
+    # Массив медианных цен в определённый период за 1 месяц(пока январь 2019)
+    average_prices_per_interval = list()
+    temp_list.clear()
 
     for i in range(0, 95):
         time.append(15 * i)
         for j in range(0, 31):
-            t_array.append(float(prepared_data[(j * 96) + i][1].replace(',', '.')))
+            temp_list.append(float(prepared_data[(j * 96) + i][1].replace(',', '.')))
 
-        prices_per_day.append(numpy.median(t_array))
-        t_array.clear()
+        average_prices_per_interval.append(numpy.median(temp_list))
+        temp_list.clear()
 
-    print(numpy.corrcoef(prices_per_day, time))
+    print(numpy.corrcoef(average_prices_per_interval, time))
     # ---------------------------------------------------------------------------------------------
 
     # ----Нахождение скользящей средней для сезонов----
@@ -70,7 +64,7 @@ def main():
     spring = list([list(), list(), list()])
     fall = list([list(), list(), list()])
 
-    temp_list = list()
+    temp_list.clear()
 
     for i in range(0, len(prices)):
         if dates[i].month in (1, 2, 12):
@@ -124,6 +118,98 @@ def main():
 
             average_fall[i].append(numpy.median(temp_list))
             temp_list.clear()
+    # ---------------------------------------------------------------------------------------------
+
+    # ----Построение графиков зависимости цен от потребления солнечной, ветренной энергий и потреблении энергии----
+    energy_data = pandas.read_csv(filepath_or_buffer='energy_data.csv',
+                                  sep=';')
+
+    # Извлечение всех цен из файла (даже не зарегестрированных)
+    price_per_interval = list()
+
+    for i, j in prepared_data:
+        if j != '-':
+            price_per_interval.append(float(j.replace(',', '.')))
+        else:
+            price_per_interval.append(j)
+
+    # Извлечение данных по солнечной и ветрянной электроэнергии
+    prepared_data = energy_data.to_numpy()
+
+    scholar_energy_per_interval = list()
+    wind_energy_per_interval = list()
+    energy_per_interval = list()
+
+    # i - дата, j - потребление энергии, k - солнечная энергия, z - ветренная энергия
+    for i, j, k, z in prepared_data:
+        if k != '-':
+            scholar_energy_per_interval.append(float(k.replace(',', '.')))
+        else:
+            scholar_energy_per_interval.append(k)
+
+        if z != '-':
+            wind_energy_per_interval.append(float(z.replace(',', '.')))
+        else:
+            wind_energy_per_interval.append(z)
+
+        if j != '-':
+            energy_per_interval.append(float(j.replace(',', '.')))
+        else:
+            energy_per_interval.append(j)
+
+    # !!!Нужно это делать для каждой выборки отдельно, так как с 11.01.2020 по 5.04.2020 нет данных о ветре и солнце!!!
+    # !!!а по потреблению энергии в целом - есть, из-за этого теряется очень моного данных!!!
+
+    # Удаляем все строки с незарегестрированными данными
+    index = 0
+    while index != len(price_per_interval):
+        if price_per_interval[index] == '-' or scholar_energy_per_interval[index] == '-' \
+                or wind_energy_per_interval[index] == '-' or energy_per_interval[index] == '-':
+            price_per_interval.pop(index)
+            scholar_energy_per_interval.pop(index)
+            wind_energy_per_interval.pop(index)
+
+            energy_per_interval.pop(index)
+        else:
+            index += 1
+
+    # Удаляем все не 'лишние данные', они за те дни, в которые мы не знаем цену
+    del scholar_energy_per_interval[len(price_per_interval):]
+    del wind_energy_per_interval[len(price_per_interval):]
+    del energy_per_interval[len(price_per_interval):]
+
+    plt.figure(3)
+    plt.title('Зависимость цен на электреэнергию от потребления солнечной энергии')
+    plt.scatter(scholar_energy_per_interval, price_per_interval)
+    plt.figure(4)
+    plt.title('Зависимость цен на электроэнергию от потребления ветрянной энергии')
+    plt.scatter(wind_energy_per_interval, price_per_interval)
+
+    plt.figure(5)
+    plt.title('Зависимость цен на электроэнергию от потребление всей энергии')
+    plt.scatter(energy_per_interval, price_per_interval)
+
+    scholar_energy_per_interval = numpy.array(scholar_energy_per_interval).reshape((-1, 1))
+    model = LinearRegression().fit(scholar_energy_per_interval, price_per_interval)
+    print('\nРегрессионный анализ для цен и солнечной энергии')
+    print('Коэффициент детерминированности (R^2) - ', model.score(scholar_energy_per_interval, price_per_interval))
+    print('b0 = ', model.intercept_)
+    print('b1 = ', model.coef_)
+
+    wind_energy_per_interval = numpy.array(wind_energy_per_interval).reshape((-1, 1))
+    wind_model = LinearRegression().fit(wind_energy_per_interval, price_per_interval)
+    print('\nРегрессионный анализ для цен и ветрянной энергии')
+    print('Коэффициент детерминированности (R^2) - ', wind_model.score(wind_energy_per_interval, price_per_interval))
+    print('b0 = ', wind_model.intercept_)
+    print('b1 = ', wind_model.coef_)
+
+    energy_per_interval = numpy.array(energy_per_interval).reshape((-1, 1))
+    energy_model = LinearRegression().fit(energy_per_interval, price_per_interval)
+    print('\nРегрессионный анализ для цен и потребления энергии')
+    print('Коэффициент детерминированности (R^2) - ', energy_model.score(energy_per_interval, price_per_interval))
+    print('b0 = ', energy_model.intercept_)
+    print('b1 = ', energy_model.coef_)
+    # ---------------------------------------------------------------------------------------------
 
     # ----Нахождение и построение скользящей средней(медиана) по разности максимальной и минимальной цен----
     average_thirty_prices = list()
@@ -196,21 +282,6 @@ def main():
     plt.legend(loc='upper right')
 
     plt.show()
-    # plt.subplot(2, 2, 1)
-    # plt.title('Разница между максимальной и минимальной ценой за электроэнергию в один день')
-    # plt.xlabel('Дни')
-    # plt.ylabel('Разница')
-    # plt.plot(prices)
-    # plt.subplot(2, 2, 2)
-    # plt.title('Скользящая средняя за 30 дней')
-    # plt.plot(average_thirty_prices)
-    # plt.subplot(2, 2, 3)
-    # plt.title('Скользящая средняя за 60 дней')
-    # plt.plot(average_sixty_prices)
-    # plt.subplot(2, 2, 4)
-    # plt.title('Скользящая средняя за 90 дней')
-    # plt.plot(average_ninety_prices)
-    # plt.show()
     # ---------------------------------------------------------------------------------------------
 
 
