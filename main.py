@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy
 from datetime import datetime
 from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
 
 
 def main():
@@ -49,13 +50,27 @@ def main():
 
     for i in range(0, 95):
         time.append(15 * i)
-        for j in range(0, 31):
-            temp_list.append(float(prepared_data[(j * 96) + i][1].replace(',', '.')))
+        for j in range(0, 919):
+            if prepared_data[(j * 96) + i][1] != '-':
+                temp_list.append(float(prepared_data[(j * 96) + i][1].replace(',', '.')))
 
         average_prices_per_interval.append(numpy.median(temp_list))
         temp_list.clear()
 
-    print(numpy.corrcoef(average_prices_per_interval, time))
+    # Преоброзованние данных при помощи полиномиальной регрессии, для анализ через линейную регрессию на выявление
+    # зависимости между временем суток и ценой на электроэнергию
+    poly_reg_day = PolynomialFeatures(degree=9)
+    X_poly = poly_reg_day.fit_transform(numpy.array(time).reshape((-1, 1)))
+    lin_reg = LinearRegression().fit(X_poly, average_prices_per_interval)
+    print(lin_reg.score(X_poly, average_prices_per_interval))
+    print(lin_reg.intercept_)
+    print(lin_reg.coef_)
+
+    plt.figure(6)
+    plt.title('Зависимость цены на электроэнергию от времени суток')
+    plt.plot(time, average_prices_per_interval, label='Усреднённые данные')
+    plt.plot(time, lin_reg.predict(X_poly), label='Данные полученные из регрессионного анализа')
+    plt.legend(loc='upper right')
     # ---------------------------------------------------------------------------------------------
 
     # ----Нахождение скользящей средней для сезонов----
@@ -157,9 +172,6 @@ def main():
         else:
             energy_per_interval.append(j)
 
-    # !!!Нужно это делать для каждой выборки отдельно, так как с 11.01.2020 по 5.04.2020 нет данных о ветре и солнце!!!
-    # !!!а по потреблению энергии в целом - есть, из-за этого теряется очень моного данных!!!
-
     # Удаляем все строки с незарегестрированными данными
     index = 0
     while index != len(price_per_interval):
@@ -178,37 +190,68 @@ def main():
     del wind_energy_per_interval[len(price_per_interval):]
     del energy_per_interval[len(price_per_interval):]
 
+    general_regression_list = list()
+
+    # Регрессия для солнечной энергии
     plt.figure(3)
     plt.title('Зависимость цен на электреэнергию от потребления солнечной энергии')
-    plt.scatter(scholar_energy_per_interval, price_per_interval)
-    plt.figure(4)
-    plt.title('Зависимость цен на электроэнергию от потребления ветрянной энергии')
-    plt.scatter(wind_energy_per_interval, price_per_interval)
 
-    plt.figure(5)
-    plt.title('Зависимость цен на электроэнергию от потребление всей энергии')
-    plt.scatter(energy_per_interval, price_per_interval)
-
-    scholar_energy_per_interval = numpy.array(scholar_energy_per_interval).reshape((-1, 1))
-    model = LinearRegression().fit(scholar_energy_per_interval, price_per_interval)
+    temp_list = numpy.array(scholar_energy_per_interval).reshape((-1, 1))
+    general_regression_list.append(temp_list)
+    model = LinearRegression().fit(temp_list, price_per_interval)
     print('\nРегрессионный анализ для цен и солнечной энергии')
-    print('Коэффициент детерминированности (R^2) - ', model.score(scholar_energy_per_interval, price_per_interval))
+    print('Коэффициент детерминированности (R^2) - ', model.score(temp_list, price_per_interval))
     print('b0 = ', model.intercept_)
     print('b1 = ', model.coef_)
 
-    wind_energy_per_interval = numpy.array(wind_energy_per_interval).reshape((-1, 1))
-    wind_model = LinearRegression().fit(wind_energy_per_interval, price_per_interval)
+    plt.scatter(scholar_energy_per_interval, price_per_interval, label='Реальные данные')
+    plt.scatter(scholar_energy_per_interval, model.predict(temp_list),
+                label='Данные полученные из регрессионной модели')
+    plt.legend(loc='upper right')
+
+    # Регрессия для ветрянной энергии
+    plt.figure(4)
+    plt.title('Зависимость цен на электроэнергию от потребления ветрянной энергии')
+
+    temp_list = numpy.array(wind_energy_per_interval).reshape((-1, 1))
+    general_regression_list.append(temp_list)
+    wind_model = LinearRegression().fit(temp_list, price_per_interval)
     print('\nРегрессионный анализ для цен и ветрянной энергии')
-    print('Коэффициент детерминированности (R^2) - ', wind_model.score(wind_energy_per_interval, price_per_interval))
+    print('Коэффициент детерминированности (R^2) - ', wind_model.score(temp_list, price_per_interval))
     print('b0 = ', wind_model.intercept_)
     print('b1 = ', wind_model.coef_)
 
-    energy_per_interval = numpy.array(energy_per_interval).reshape((-1, 1))
-    energy_model = LinearRegression().fit(energy_per_interval, price_per_interval)
+    plt.scatter(wind_energy_per_interval, price_per_interval, label='Реальные данные')
+    plt.scatter(wind_energy_per_interval, wind_model.predict(temp_list),
+                label='Данные полученные из регрессионной модели')
+    plt.legend(loc='upper right')
+
+    # Регрессия для общего потребления энергии
+    plt.figure(5)
+    plt.title('Зависимость цен на электроэнергию от потребление всей энергии')
+
+    temp_list = numpy.array(energy_per_interval).reshape((-1, 1))
+    general_regression_list.append(temp_list)
+    energy_model = LinearRegression().fit(temp_list, price_per_interval)
     print('\nРегрессионный анализ для цен и потребления энергии')
-    print('Коэффициент детерминированности (R^2) - ', energy_model.score(energy_per_interval, price_per_interval))
+    print('Коэффициент детерминированности (R^2) - ', energy_model.score(temp_list, price_per_interval))
     print('b0 = ', energy_model.intercept_)
     print('b1 = ', energy_model.coef_)
+
+    plt.scatter(energy_per_interval, price_per_interval, label='Реальные данные')
+    plt.scatter(energy_per_interval, energy_model.predict(temp_list),
+                label='Данные полученные из регрессионной модели')
+    plt.legend(loc='upper right')
+
+    general_model = LinearRegression().fit(numpy.column_stack([general_regression_list[0], general_regression_list[1],
+                                           general_regression_list[2]]), price_per_interval)
+    print('\nОбщий регрессионный анализ')
+    print('R^2 - ', general_model.score(numpy.column_stack([general_regression_list[0], general_regression_list[1],
+                                        general_regression_list[2]]), price_per_interval))
+    print('b0 = ', general_model.intercept_)
+    print('b^ = ', general_model.coef_)
+
+    temp_list = list()
     # ---------------------------------------------------------------------------------------------
 
     # ----Нахождение и построение скользящей средней(медиана) по разности максимальной и минимальной цен----
