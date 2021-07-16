@@ -294,7 +294,7 @@ def main():
              label='Скользящая средняя (90 дней)')
     plt.xlabel('Дни')
     plt.legend(loc='upper right')
-    plt.ylim(-1.0, 200.0)
+    plt.ylim(-1.0, 175.0)
 
     plt.figure(2)
     plt.title('Скользящая средняя по временам года')
