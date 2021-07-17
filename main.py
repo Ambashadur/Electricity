@@ -4,6 +4,7 @@ import numpy
 from datetime import datetime
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
+from matplotlib import  cm as cm
 
 
 def main():
@@ -73,6 +74,129 @@ def main():
     plt.legend(loc='upper right')
     # ---------------------------------------------------------------------------------------------
 
+    # ----Нахождение коэффициентов корреляции между ценами в разных странах
+    europe_dataframe = pandas.read_csv(filepath_or_buffer='prices.csv',
+                                       sep=',')
+    one_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
+                                      sep=',')
+    one_shift_frame.BE = one_shift_frame.BE.shift(-1)
+    # one_shift_frame.drop(one_shift_frame[numpy.isnan(one_shift_frame['BE']) |
+    #                      numpy.isnan(one_shift_frame['PL']) |
+    #                      numpy.isnan(one_shift_frame['El']) |
+    #                      numpy.isnan(one_shift_frame['DE']) |
+    #                      numpy.isnan(one_shift_frame['FR']) |
+    #                      numpy.isnan(one_shift_frame['NL'])].index, inplace=True)
+
+    two_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
+                                      sep=',')
+    two_shift_frame.BE = two_shift_frame.BE.shift(-2)
+    # two_shift_frame.drop(two_shift_frame[numpy.isnan(two_shift_frame['BE']) |
+    #                                      numpy.isnan(two_shift_frame['PL']) |
+    #                                      numpy.isnan(two_shift_frame['El']) |
+    #                                      numpy.isnan(two_shift_frame['DE']) |
+    #                                      numpy.isnan(two_shift_frame['FR']) |
+    #                                      numpy.isnan(two_shift_frame['NL'])].index, inplace=True)
+
+    three_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
+                                        sep=',')
+    three_shift_frame.BE = three_shift_frame.BE.shift(-3)
+    # three_shift_frame.drop(three_shift_frame[numpy.isnan(three_shift_frame['BE']) |
+    #                                          numpy.isnan(three_shift_frame['PL']) |
+    #                                          numpy.isnan(three_shift_frame['El']) |
+    #                                          numpy.isnan(three_shift_frame['DE']) |
+    #                                          numpy.isnan(three_shift_frame['FR']) |
+    #                                          numpy.isnan(three_shift_frame['NL'])].index, inplace=True)
+
+    four_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
+                                       sep=',')
+    four_shift_frame.BE = four_shift_frame.BE.shift(-4)
+    # four_shift_frame.drop(four_shift_frame[numpy.isnan(four_shift_frame['BE']) |
+    #                                        numpy.isnan(four_shift_frame['PL']) |
+    #                                        numpy.isnan(four_shift_frame['El']) |
+    #                                        numpy.isnan(four_shift_frame['DE']) |
+    #                                        numpy.isnan(four_shift_frame['FR']) |
+    #                                        numpy.isnan(four_shift_frame['NL'])].index, inplace=True)
+
+    five_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
+                                       sep=',')
+    five_shift_frame.BE = five_shift_frame.BE.shift(-5)
+    # five_shift_frame.drop(five_shift_frame[numpy.isnan(five_shift_frame['BE']) |
+    #                                        numpy.isnan(five_shift_frame['PL']) |
+    #                                        numpy.isnan(five_shift_frame['El']) |
+    #                                        numpy.isnan(five_shift_frame['DE']) |
+    #                                        numpy.isnan(five_shift_frame['FR']) |
+    #                                        numpy.isnan(five_shift_frame['NL'])].index, inplace=True)
+
+    # Очищаем данные от пустых значений
+    # europe_dataframe.drop(europe_dataframe[numpy.isnan(europe_dataframe['BE']) |
+    #                                        numpy.isnan(europe_dataframe['PL']) |
+    #                                        numpy.isnan(europe_dataframe['El']) |
+    #                                        numpy.isnan(europe_dataframe['DE']) |
+    #                                        numpy.isnan(europe_dataframe['FR']) |
+    #                                        numpy.isnan(europe_dataframe['NL'])].index, inplace=True)
+
+    # Отображение коэффициентов корреляции
+    figure = plt.figure(7)
+    ax1 = figure.add_subplot(1, 1, 1)
+    cmap = cm.get_cmap('jet', 30)
+    cax = ax1.imshow(europe_dataframe.corr(), interpolation='nearest', cmap=cmap)
+    ax1.grid(True)
+    plt.title('Матрица коэффициентов корреляции между ценами на электроэнергию в европейских странах (сдвига нет)')
+    ax1.set_xticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
+    ax1.set_yticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
+    figure.colorbar(cax, ticks=[.70, .75, .80, .85, .90, .95, 1])
+
+    figure = plt.figure(8)
+    ax1 = figure.add_subplot(1, 1, 1)
+    cmap = cm.get_cmap('jet', 30)
+    cax = ax1.imshow(one_shift_frame.corr(), interpolation='nearest', cmap=cmap)
+    ax1.grid(True)
+    plt.title('Матрица коэффициентов корреляции между ценами на электроэнергию в европейских странах (сдвиг на 1 день)')
+    ax1.set_xticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
+    ax1.set_yticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
+    figure.colorbar(cax, ticks=[.70, .75, .80, .85, .90, .95, 1])
+
+    figure = plt.figure(9)
+    ax1 = figure.add_subplot(1, 1, 1)
+    cmap = cm.get_cmap('jet', 30)
+    cax = ax1.imshow(two_shift_frame.corr(), interpolation='nearest', cmap=cmap)
+    ax1.grid(True)
+    plt.title('Матрица коэффициентов корреляции между ценами на электроэнергию в европейских странах (сдвиг на 2 дня)')
+    ax1.set_xticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
+    ax1.set_yticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
+    figure.colorbar(cax, ticks=[.70, .75, .80, .85, .90, .95, 1])
+
+    figure = plt.figure(10)
+    ax1 = figure.add_subplot(1, 1, 1)
+    cmap = cm.get_cmap('jet', 30)
+    cax = ax1.imshow(three_shift_frame.corr(), interpolation='nearest', cmap=cmap)
+    ax1.grid(True)
+    plt.title('Матрица коэффициентов корреляции между ценами на электроэнергию в европейских странах (сдвиг на 3 дня)')
+    ax1.set_xticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
+    ax1.set_yticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
+    figure.colorbar(cax, ticks=[.70, .75, .80, .85, .90, .95, 1])
+
+    figure = plt.figure(11)
+    ax1 = figure.add_subplot(1, 1, 1)
+    cmap = cm.get_cmap('jet', 30)
+    cax = ax1.imshow(four_shift_frame.corr(), interpolation='nearest', cmap=cmap)
+    ax1.grid(True)
+    plt.title('Матрица коэффициентов корреляции между ценами на электроэнергию в европейских странах (сдвиг на 4 дня)')
+    ax1.set_xticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
+    ax1.set_yticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
+    figure.colorbar(cax, ticks=[.70, .75, .80, .85, .90, .95, 1])
+
+    figure = plt.figure(12)
+    ax1 = figure.add_subplot(1, 1, 1)
+    cmap = cm.get_cmap('jet', 30)
+    cax = ax1.imshow(five_shift_frame.corr(), interpolation='nearest', cmap=cmap)
+    ax1.grid(True)
+    plt.title('Матрица коэффициентов корреляции между ценами на электроэнергию в европейских странах (сдвиг на 5 дней)')
+    ax1.set_xticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
+    ax1.set_yticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
+    figure.colorbar(cax, ticks=[.70, .75, .80, .85, .90, .95, 1])
+    # ---------------------------------------------------------------------------------------------
+
     # ----Нахождение скользящей средней для сезонов----
     summer = list([list(), list(), list()])
     winter = list([list(), list(), list()])
@@ -133,6 +257,21 @@ def main():
 
             average_fall[i].append(numpy.median(temp_list))
             temp_list.clear()
+
+    print(numpy.median(average_spring[0]))
+    print(numpy.median(average_spring[1]))
+    print(numpy.median(average_spring[2]))
+    print('------')
+    print(numpy.median(summer[0]))
+    print(numpy.median(summer[1]))
+    print(numpy.median(summer[2]))
+    print('------')
+    print(numpy.median(fall[0]))
+    print(numpy.median(fall[1]))
+    print('------')
+    print(numpy.median(winter[0]))
+    print(numpy.median(winter[1]))
+    print(numpy.median(winter[2]))
     # ---------------------------------------------------------------------------------------------
 
     # ----Построение графиков зависимости цен от потребления солнечной, ветренной энергий и потреблении энергии----
