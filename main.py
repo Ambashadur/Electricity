@@ -80,60 +80,22 @@ def main():
     one_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
                                       sep=',')
     one_shift_frame.BE = one_shift_frame.BE.shift(-1)
-    # one_shift_frame.drop(one_shift_frame[numpy.isnan(one_shift_frame['BE']) |
-    #                      numpy.isnan(one_shift_frame['PL']) |
-    #                      numpy.isnan(one_shift_frame['El']) |
-    #                      numpy.isnan(one_shift_frame['DE']) |
-    #                      numpy.isnan(one_shift_frame['FR']) |
-    #                      numpy.isnan(one_shift_frame['NL'])].index, inplace=True)
 
     two_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
                                       sep=',')
     two_shift_frame.BE = two_shift_frame.BE.shift(-2)
-    # two_shift_frame.drop(two_shift_frame[numpy.isnan(two_shift_frame['BE']) |
-    #                                      numpy.isnan(two_shift_frame['PL']) |
-    #                                      numpy.isnan(two_shift_frame['El']) |
-    #                                      numpy.isnan(two_shift_frame['DE']) |
-    #                                      numpy.isnan(two_shift_frame['FR']) |
-    #                                      numpy.isnan(two_shift_frame['NL'])].index, inplace=True)
 
     three_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
                                         sep=',')
     three_shift_frame.BE = three_shift_frame.BE.shift(-3)
-    # three_shift_frame.drop(three_shift_frame[numpy.isnan(three_shift_frame['BE']) |
-    #                                          numpy.isnan(three_shift_frame['PL']) |
-    #                                          numpy.isnan(three_shift_frame['El']) |
-    #                                          numpy.isnan(three_shift_frame['DE']) |
-    #                                          numpy.isnan(three_shift_frame['FR']) |
-    #                                          numpy.isnan(three_shift_frame['NL'])].index, inplace=True)
 
     four_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
                                        sep=',')
     four_shift_frame.BE = four_shift_frame.BE.shift(-4)
-    # four_shift_frame.drop(four_shift_frame[numpy.isnan(four_shift_frame['BE']) |
-    #                                        numpy.isnan(four_shift_frame['PL']) |
-    #                                        numpy.isnan(four_shift_frame['El']) |
-    #                                        numpy.isnan(four_shift_frame['DE']) |
-    #                                        numpy.isnan(four_shift_frame['FR']) |
-    #                                        numpy.isnan(four_shift_frame['NL'])].index, inplace=True)
 
     five_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
                                        sep=',')
     five_shift_frame.BE = five_shift_frame.BE.shift(-5)
-    # five_shift_frame.drop(five_shift_frame[numpy.isnan(five_shift_frame['BE']) |
-    #                                        numpy.isnan(five_shift_frame['PL']) |
-    #                                        numpy.isnan(five_shift_frame['El']) |
-    #                                        numpy.isnan(five_shift_frame['DE']) |
-    #                                        numpy.isnan(five_shift_frame['FR']) |
-    #                                        numpy.isnan(five_shift_frame['NL'])].index, inplace=True)
-
-    # Очищаем данные от пустых значений
-    # europe_dataframe.drop(europe_dataframe[numpy.isnan(europe_dataframe['BE']) |
-    #                                        numpy.isnan(europe_dataframe['PL']) |
-    #                                        numpy.isnan(europe_dataframe['El']) |
-    #                                        numpy.isnan(europe_dataframe['DE']) |
-    #                                        numpy.isnan(europe_dataframe['FR']) |
-    #                                        numpy.isnan(europe_dataframe['NL'])].index, inplace=True)
 
     # Отображение коэффициентов корреляции
     figure = plt.figure(7)
@@ -258,6 +220,17 @@ def main():
             average_fall[i].append(numpy.median(temp_list))
             temp_list.clear()
 
+    plt.figure(13)
+    plt.plot(['Зима', 'Весна', 'Лето', 'Осень'], [numpy.median(average_winter[0]), numpy.median(average_spring[0]),
+                                                  numpy.median(average_summer[0]), numpy.median(average_fall[0])],
+             label='Медианные значения разницы цен за 2019 год')
+    plt.plot(['Зима', 'Весна', 'Лето', 'Осень'], [numpy.median(average_winter[1]), numpy.median(average_spring[1]),
+                                                  numpy.median(average_summer[1]), numpy.median(average_fall[1])],
+             label='Медианные значения разницы цен за 2020 год')
+    plt.plot(['Зима', 'Весна', 'Лето', 'Осень'], [numpy.median(average_winter[2]), numpy.median(average_spring[2]),
+                                                  numpy.median(average_summer[2]), numpy.median(average_fall[2])],
+             label='Медианные значения разницы цен за 2021 год')
+    plt.legend(loc='upper right')
     print(numpy.median(average_spring[0]))
     print(numpy.median(average_spring[1]))
     print(numpy.median(average_spring[2]))
