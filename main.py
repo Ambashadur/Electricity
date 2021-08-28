@@ -2,20 +2,89 @@ import pandas
 import matplotlib.pyplot as plt
 import numpy
 from datetime import datetime
+import pandas as pd
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
-from matplotlib import  cm as cm
+
+
+def find_difference_between_prices(path_to_file: str,
+                                   index_name: str = 'timestamp',
+                                   separator: str = ',',
+                                   title: str = 'Name') -> None:
+
+    data = pandas.read_csv(path_to_file, parse_dates=True, index_col=index_name, sep=separator)
+    differences = list()
+    temp_list = list()
+
+    cur_date = data.index[0].day
+    for i in data.index:
+        if data.loc[i][data.columns[0]] != '-':
+            if i.day != cur_date:
+                differences.append(max(temp_list) - min(temp_list))
+                cur_date = i.day
+                temp_list.clear()
+
+            temp_list.append(float(data.loc[i][data.columns[0]]))
+
+    average_thirty_prices = list()
+    average_sixty_prices = list()
+    average_ninety_prices = list()
+    temp_list.clear()
+
+    for i in range(0, len(differences) - 30):
+        for j in range(i, 30 + i):
+            temp_list.append(differences[j])
+
+        average_thirty_prices.append(numpy.median(temp_list))
+        temp_list.clear()
+
+    for i in range(0, len(differences) - 60):
+        for j in range(i, 60 + i):
+            temp_list.append(differences[j])
+
+        average_sixty_prices.append(numpy.median(temp_list))
+        temp_list.clear()
+
+    for i in range(0, len(differences) - 90):
+        for j in range(i, 90 + i):
+            temp_list.append(differences[j])
+
+        average_ninety_prices.append(numpy.median(temp_list))
+        temp_list.clear()
+
+    fig, ax = plt.subplots()
+    ax.set_title(title)
+    ax.plot(pd.date_range(data.index[0].date(), periods=len(differences)),
+            differences,
+            label='Difference between the highest and the lowest price')
+    ax.plot(pd.date_range(data.index[0].date(), periods=len(differences))[:len(average_thirty_prices)],
+            average_thirty_prices,
+            label='30 days moving average')
+    ax.plot(pd.date_range(data.index[0].date(), periods=len(differences))[:len(average_sixty_prices)],
+            average_sixty_prices,
+            label='60 days moving average')
+    ax.plot(pd.date_range(data.index[0].date(), periods=len(differences))[:len(average_ninety_prices)],
+            average_ninety_prices,
+            label='90 days moving average')
+    ax.legend(loc='upper right')
+    ax.set_ylabel('Difference (Euro)')
+    ax.set_ylim(-1.0, 120.0)
+    plt.show()
 
 
 def main():
     # Загружаем данные из файла
     data = pandas.read_csv(filepath_or_buffer='data.csv',
                            sep='\t')
+    find_difference_between_prices('data.csv',
+                                   'DateTime',
+                                   '\t',
+                                   'The difference between the highest and the lowest price for electricity in one day (Belgium)')
 
-    # Если файл загрузился не в DataFrame, то выдаём ошибку
-    if not isinstance(data, pandas.DataFrame):
-        print('--ERROR--\nCan not load file\n')
-        return 0
+    find_difference_between_prices('NL_price.csv',
+                                   'timestamp',
+                                   ',',
+                                   'The difference between the highest and the lowest price for electricity in one day (Netherlands)')
 
     prepared_data = data.to_numpy()
 
@@ -45,9 +114,11 @@ def main():
 
     # ----Нахождение коэффициента корреляции между временем суток и ценой на электроэнергию----
     time = list()
-    # Массив медианных цен в определённый период за 1 месяц(пока январь 2019)
     average_prices_per_interval = list()
     temp_list.clear()
+
+    netherlands_prepared_data = pd.read_csv('NL_price.csv', parse_dates=True, index_col='timestamp').fillna(0.0).to_numpy()
+    nl_average_prices_per_interval = list()
 
     for i in range(0, 95):
         time.append(15 * i)
@@ -56,6 +127,16 @@ def main():
                 temp_list.append(float(prepared_data[(j * 96) + i][1].replace(',', '.')))
 
         average_prices_per_interval.append(numpy.median(temp_list))
+        temp_list.clear()
+
+    temp_list.clear()
+
+    for i in range(0, 95):
+        for j in range(0, 960):
+            if netherlands_prepared_data[(j * 96) + i] != '-':
+                temp_list.append(float(netherlands_prepared_data[(j * 96) + i]))
+
+        nl_average_prices_per_interval.append(numpy.median(temp_list))
         temp_list.clear()
 
     # Преоброзованние данных при помощи полиномиальной регрессии, для анализ через линейную регрессию на выявление
@@ -67,96 +148,110 @@ def main():
     print(lin_reg.intercept_)
     print(lin_reg.coef_)
 
+    time_in_minutes = list()
+    for i in time:
+        if i // 60 != 0 and i % 60 != 0:
+            time_in_minutes.append(f'{i // 60}:{i % 60}')
+        elif i // 60 == 0 and i % 60 == 0:
+            time_in_minutes.append('00:00')
+        elif i % 60 == 0:
+            time_in_minutes.append(f'{i // 60}:00')
+        else:
+            time_in_minutes.append(f'00:{i % 60}')
+
     plt.figure(6)
-    plt.title('Зависимость цены на электроэнергию от времени суток')
-    plt.plot(time, average_prices_per_interval, label='Усреднённые данные')
-    plt.plot(time, lin_reg.predict(X_poly), label='Данные полученные из регрессионного анализа')
+    plt.title('Dependence og the price of electricity on the time of day')
+    plt.plot(time_in_minutes, average_prices_per_interval, label='Belgium')
+    plt.plot(time_in_minutes, nl_average_prices_per_interval, label='Netherlands')
+    plt.xlabel('Time')
+    plt.ylabel('Price')
+    plt.xticks(time_in_minutes[::5])
     plt.legend(loc='upper right')
     # ---------------------------------------------------------------------------------------------
 
     # ----Нахождение коэффициентов корреляции между ценами в разных странах
-    europe_dataframe = pandas.read_csv(filepath_or_buffer='prices.csv',
-                                       sep=',')
-    one_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
-                                      sep=',')
+    europe_dataframe = pandas.read_csv(filepath_or_buffer='prices.csv', sep=',')
+
+    one_shift_frame = europe_dataframe.copy()
     one_shift_frame.BE = one_shift_frame.BE.shift(-1)
 
-    two_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
-                                      sep=',')
+    two_shift_frame = europe_dataframe.copy()
     two_shift_frame.BE = two_shift_frame.BE.shift(-2)
 
-    three_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
-                                        sep=',')
+    three_shift_frame = europe_dataframe.copy()
     three_shift_frame.BE = three_shift_frame.BE.shift(-3)
 
-    four_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
-                                       sep=',')
+    four_shift_frame = europe_dataframe.copy()
     four_shift_frame.BE = four_shift_frame.BE.shift(-4)
 
-    five_shift_frame = pandas.read_csv(filepath_or_buffer='prices.csv',
-                                       sep=',')
+    five_shift_frame = europe_dataframe.copy()
     five_shift_frame.BE = five_shift_frame.BE.shift(-5)
 
-    # Отображение коэффициентов корреляции
-    figure = plt.figure(7)
-    ax1 = figure.add_subplot(1, 1, 1)
-    cmap = cm.get_cmap('jet', 30)
-    cax = ax1.imshow(europe_dataframe.corr(), interpolation='nearest', cmap=cmap)
-    ax1.grid(True)
-    plt.title('Матрица коэффициентов корреляции между ценами на электроэнергию в европейских странах (сдвига нет)')
-    ax1.set_xticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
-    ax1.set_yticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
-    figure.colorbar(cax, ticks=[.70, .75, .80, .85, .90, .95, 1])
+    one_forward_shift_frame = europe_dataframe.copy()
+    one_forward_shift_frame.BE = one_forward_shift_frame.BE.shift(1)
 
-    figure = plt.figure(8)
-    ax1 = figure.add_subplot(1, 1, 1)
-    cmap = cm.get_cmap('jet', 30)
-    cax = ax1.imshow(one_shift_frame.corr(), interpolation='nearest', cmap=cmap)
-    ax1.grid(True)
-    plt.title('Матрица коэффициентов корреляции между ценами на электроэнергию в европейских странах (сдвиг на 1 день)')
-    ax1.set_xticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
-    ax1.set_yticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
-    figure.colorbar(cax, ticks=[.70, .75, .80, .85, .90, .95, 1])
+    two_forward_shift_frame = europe_dataframe.copy()
+    two_forward_shift_frame.BE = two_forward_shift_frame.BE.shift(2)
 
-    figure = plt.figure(9)
-    ax1 = figure.add_subplot(1, 1, 1)
-    cmap = cm.get_cmap('jet', 30)
-    cax = ax1.imshow(two_shift_frame.corr(), interpolation='nearest', cmap=cmap)
-    ax1.grid(True)
-    plt.title('Матрица коэффициентов корреляции между ценами на электроэнергию в европейских странах (сдвиг на 2 дня)')
-    ax1.set_xticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
-    ax1.set_yticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
-    figure.colorbar(cax, ticks=[.70, .75, .80, .85, .90, .95, 1])
+    three_forward_shift_frame = europe_dataframe.copy()
+    three_forward_shift_frame.BE = three_forward_shift_frame.BE.shift(3)
 
-    figure = plt.figure(10)
-    ax1 = figure.add_subplot(1, 1, 1)
-    cmap = cm.get_cmap('jet', 30)
-    cax = ax1.imshow(three_shift_frame.corr(), interpolation='nearest', cmap=cmap)
-    ax1.grid(True)
-    plt.title('Матрица коэффициентов корреляции между ценами на электроэнергию в европейских странах (сдвиг на 3 дня)')
-    ax1.set_xticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
-    ax1.set_yticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
-    figure.colorbar(cax, ticks=[.70, .75, .80, .85, .90, .95, 1])
+    four_forward_shift_frame = europe_dataframe.copy()
+    four_forward_shift_frame.BE = four_forward_shift_frame.BE.shift(4)
 
-    figure = plt.figure(11)
-    ax1 = figure.add_subplot(1, 1, 1)
-    cmap = cm.get_cmap('jet', 30)
-    cax = ax1.imshow(four_shift_frame.corr(), interpolation='nearest', cmap=cmap)
-    ax1.grid(True)
-    plt.title('Матрица коэффициентов корреляции между ценами на электроэнергию в европейских странах (сдвиг на 4 дня)')
-    ax1.set_xticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
-    ax1.set_yticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
-    figure.colorbar(cax, ticks=[.70, .75, .80, .85, .90, .95, 1])
+    five_forward_shift_frame = europe_dataframe.copy()
+    five_forward_shift_frame.BE = five_forward_shift_frame.BE.shift(5)
 
-    figure = plt.figure(12)
-    ax1 = figure.add_subplot(1, 1, 1)
-    cmap = cm.get_cmap('jet', 30)
-    cax = ax1.imshow(five_shift_frame.corr(), interpolation='nearest', cmap=cmap)
-    ax1.grid(True)
-    plt.title('Матрица коэффициентов корреляции между ценами на электроэнергию в европейских странах (сдвиг на 5 дней)')
-    ax1.set_xticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
-    ax1.set_yticklabels([1, 'Бельгия', 'Польша', 'Греция', 'Германия', 'Франция', 'Нидерланды'], fontsize=6)
-    figure.colorbar(cax, ticks=[.70, .75, .80, .85, .90, .95, 1])
+    # --- Back shift plot ---
+
+    back_shift_df = pandas.DataFrame({'No shift': europe_dataframe.corr()['BE'][1:],
+                                      '15 minutes': one_shift_frame.corr()['BE'][1:],
+                                      '30 minutes': two_shift_frame.corr()['BE'][1:],
+                                      '45 minutes': three_shift_frame.corr()['BE'][1:],
+                                      '60 minutes': four_shift_frame.corr()['BE'][1:],
+                                      '75 minutes': five_shift_frame.corr()['BE'][1:]})
+
+    fig, ax = plt.subplots()
+    ax.set_title('Shift forward in time')
+    ax.imshow(back_shift_df.to_numpy(), cmap='Wistia')
+
+    ax.set_xticks(numpy.arange(6))
+    ax.set_yticks(numpy.arange(5))
+    ax.set_xticklabels(back_shift_df.columns, fontsize=12)
+    ax.set_yticklabels(['Poland', 'Spain', 'Germany', 'France', 'Netherlands'], fontsize=12)
+
+    for i in range(5):
+        for j in range(6):
+            ax.text(j, i, round(back_shift_df.to_numpy()[i, j], 2),
+                    ha='center', va='center', color='black', size='x-large')
+
+    fig.tight_layout()
+
+    # --- Forward shift plot
+
+    forward_shift_df = pandas.DataFrame({'No shift': europe_dataframe.corr()['BE'][1:],
+                                         '15 minutes': one_forward_shift_frame.corr()['BE'][1:],
+                                         '30 minutes': two_forward_shift_frame.corr()['BE'][1:],
+                                         '45 minutes': three_forward_shift_frame.corr()['BE'][1:],
+                                         '60 minutes': four_forward_shift_frame.corr()['BE'][1:],
+                                         '75 minutes': five_forward_shift_frame.corr()['BE'][1:]})
+
+    fig, ax = plt.subplots()
+    ax.set_title('Shift back in time')
+    ax.imshow(forward_shift_df.to_numpy(), cmap='Wistia')
+
+    ax.set_xticks(numpy.arange(6))
+    ax.set_yticks(numpy.arange(5))
+    ax.set_xticklabels(forward_shift_df.columns, fontsize=12)
+    ax.set_yticklabels(['Poland', 'Spain', 'Germany', 'France', 'Netherlands'], fontsize=12)
+
+    for i in range(5):
+        for j in range(6):
+            ax.text(j, i, round(forward_shift_df.to_numpy()[i, j], 2),
+                    ha='center', va='center', color='black', size='x-large')
+
+    fig.tight_layout()
+
     # ---------------------------------------------------------------------------------------------
 
     # ----Нахождение скользящей средней для сезонов----
@@ -221,15 +316,15 @@ def main():
             temp_list.clear()
 
     plt.figure(13)
-    plt.plot(['Зима', 'Весна', 'Лето', 'Осень'], [numpy.median(average_winter[0]), numpy.median(average_spring[0]),
-                                                  numpy.median(average_summer[0]), numpy.median(average_fall[0])],
-             label='Медианные значения разницы цен за 2019 год')
-    plt.plot(['Зима', 'Весна', 'Лето', 'Осень'], [numpy.median(average_winter[1]), numpy.median(average_spring[1]),
-                                                  numpy.median(average_summer[1]), numpy.median(average_fall[1])],
-             label='Медианные значения разницы цен за 2020 год')
-    plt.plot(['Зима', 'Весна', 'Лето', 'Осень'], [numpy.median(average_winter[2]), numpy.median(average_spring[2]),
-                                                  numpy.median(average_summer[2]), numpy.median(average_fall[2])],
-             label='Медианные значения разницы цен за 2021 год')
+    plt.plot(['Winter', 'Spring', 'Summer', 'Autumn'], [numpy.median(average_winter[0]), numpy.median(average_spring[0]),
+                                                        numpy.median(average_summer[0]), numpy.median(average_fall[0])],
+             label='2019')
+    plt.plot(['Winter', 'Spring', 'Summer', 'Autumn'], [numpy.median(average_winter[1]), numpy.median(average_spring[1]),
+                                                        numpy.median(average_summer[1]), numpy.median(average_fall[1])],
+             label='2020')
+    plt.plot(['Winter', 'Spring', 'Summer', 'Autumn'], [numpy.median(average_winter[2]), numpy.median(average_spring[2]),
+                                                        numpy.median(average_summer[2]), numpy.median(average_fall[2])],
+             label='2021')
     plt.legend(loc='upper right')
     print(numpy.median(average_spring[0]))
     print(numpy.median(average_spring[1]))
@@ -267,22 +362,22 @@ def main():
     wind_energy_per_interval = list()
     energy_per_interval = list()
 
-    # i - дата, j - потребление энергии, k - солнечная энергия, z - ветренная энергия
-    for i, j, k, z in prepared_data:
-        if k != '-':
-            scholar_energy_per_interval.append(float(k.replace(',', '.')))
+    # i - дата
+    for i, total_energy, solar_energy, wind_energy in prepared_data:
+        if solar_energy != '-':
+            scholar_energy_per_interval.append(float(solar_energy.replace(',', '.')))
         else:
-            scholar_energy_per_interval.append(k)
+            scholar_energy_per_interval.append(solar_energy)
 
-        if z != '-':
-            wind_energy_per_interval.append(float(z.replace(',', '.')))
+        if wind_energy != '-':
+            wind_energy_per_interval.append(float(wind_energy.replace(',', '.')))
         else:
-            wind_energy_per_interval.append(z)
+            wind_energy_per_interval.append(wind_energy)
 
-        if j != '-':
-            energy_per_interval.append(float(j.replace(',', '.')))
+        if total_energy != '-':
+            energy_per_interval.append(float(total_energy.replace(',', '.')))
         else:
-            energy_per_interval.append(j)
+            energy_per_interval.append(total_energy)
 
     # Удаляем все строки с незарегестрированными данными
     index = 0
@@ -292,7 +387,6 @@ def main():
             price_per_interval.pop(index)
             scholar_energy_per_interval.pop(index)
             wind_energy_per_interval.pop(index)
-
             energy_per_interval.pop(index)
         else:
             index += 1
@@ -302,58 +396,95 @@ def main():
     del wind_energy_per_interval[len(price_per_interval):]
     del energy_per_interval[len(price_per_interval):]
 
+    # ---- Коэффициенты корреляции
+    coeff_df = pandas.DataFrame({'price': price_per_interval, 'solar': scholar_energy_per_interval,
+                                 'wind': wind_energy_per_interval, 'total': energy_per_interval})
+
+    one_shift_frame = coeff_df.copy()
+    one_shift_frame.price = one_shift_frame.price.shift(-1)
+    two_shift_frame = coeff_df.copy()
+    two_shift_frame.price = two_shift_frame.price.shift(-2)
+    three_shift_frame = coeff_df.copy()
+    three_shift_frame.price = three_shift_frame.price.shift(-3)
+    four_shift_frame = coeff_df.copy()
+    four_shift_frame.price = four_shift_frame.price.shift(-4)
+    five_shift_frame = coeff_df.copy()
+    five_shift_frame.price = five_shift_frame.price.shift(-5)
+    one_forward_shift_frame = coeff_df.copy()
+    one_forward_shift_frame.price = one_forward_shift_frame.price.shift(1)
+    two_forward_shift_frame = coeff_df.copy()
+    two_forward_shift_frame.price = two_forward_shift_frame.price.shift(2)
+    three_forward_shift_frame = coeff_df.copy()
+    three_forward_shift_frame.price = three_forward_shift_frame.price.shift(3)
+    four_forward_shift_frame = coeff_df.copy()
+    four_forward_shift_frame.price = four_forward_shift_frame.price.shift(4)
+    five_forward_shift_frame = coeff_df.copy()
+    five_forward_shift_frame.price = five_forward_shift_frame.price.shift(5)
+
+    fig, ax = plt.subplots()
+    ax.set_title('Forward shift in time')
+
+    back_shift_df = pd.DataFrame({'No shift': coeff_df.corr().price[1:],
+                                  '15 minutes': one_shift_frame.corr().price[1:],
+                                  '30 minutes': two_shift_frame.corr().price[1:],
+                                  '45 minutes': three_shift_frame.corr().price[1:],
+                                  '60 minutes': four_shift_frame.corr().price[1:],
+                                  '75 minutes': five_shift_frame.corr().price[1:]})
+
+    ax.imshow(back_shift_df.to_numpy(), cmap='Wistia')
+
+    ax.set_xticks(numpy.arange(6))
+    ax.set_yticks(numpy.arange(3))
+    ax.set_xticklabels(back_shift_df.columns, fontsize=12)
+    ax.set_yticklabels(['Total solar generation', 'Total wind generation', 'Total consumption'], fontsize=12)
+
+    for i in range(3):
+        for j in range(6):
+            ax.text(j, i, round(back_shift_df.to_numpy()[i, j], 2),
+                    ha='center', va='center', color='black', size='x-large')
+
+    fig.tight_layout()
+
+    fig, ax = plt.subplots()
+    ax.set_title('Back shift in time')
+
+    forward_shift_df = pd.DataFrame({'No shift': coeff_df.corr().price[1:],
+                                     '15 minutes': one_forward_shift_frame.corr().price[1:],
+                                     '30 minutes': two_forward_shift_frame.corr().price[1:],
+                                     '45 minutes': three_forward_shift_frame.corr().price[1:],
+                                     '60 minutes': four_forward_shift_frame.corr().price[1:],
+                                     '75 minutes': five_forward_shift_frame.corr().price[1:]})
+
+    ax.imshow(forward_shift_df.to_numpy(), cmap='Wistia')
+
+    ax.set_xticks(numpy.arange(6))
+    ax.set_yticks(numpy.arange(3))
+    ax.set_xticklabels(forward_shift_df.columns, fontsize=12)
+    ax.set_yticklabels(['Total solar generation', 'Total wind generation', 'Total consumption'], fontsize=12)
+
+    for i in range(3):
+        for j in range(6):
+            ax.text(j, i, round(forward_shift_df.to_numpy()[i, j], 2),
+                    ha='center', va='center', color='black', size='x-large')
+
+    fig.tight_layout()
+    # ----------------------------------------------
+
     general_regression_list = list()
 
     # Регрессия для солнечной энергии
-    plt.figure(3)
-    plt.title('Зависимость цен на электреэнергию от потребления солнечной энергии')
-
     temp_list = numpy.array(scholar_energy_per_interval).reshape((-1, 1))
     general_regression_list.append(temp_list)
-    model = LinearRegression().fit(temp_list, price_per_interval)
-    print('\nРегрессионный анализ для цен и солнечной энергии')
-    print('Коэффициент детерминированности (R^2) - ', model.score(temp_list, price_per_interval))
-    print('b0 = ', model.intercept_)
-    print('b1 = ', model.coef_)
-
-    plt.scatter(scholar_energy_per_interval, price_per_interval, label='Реальные данные')
-    plt.scatter(scholar_energy_per_interval, model.predict(temp_list),
-                label='Данные полученные из регрессионной модели')
-    plt.legend(loc='upper right')
-
-    # Регрессия для ветрянной энергии
-    plt.figure(4)
-    plt.title('Зависимость цен на электроэнергию от потребления ветрянной энергии')
+    # model = LinearRegression().fit(temp_list, price_per_interval)
 
     temp_list = numpy.array(wind_energy_per_interval).reshape((-1, 1))
     general_regression_list.append(temp_list)
-    wind_model = LinearRegression().fit(temp_list, price_per_interval)
-    print('\nРегрессионный анализ для цен и ветрянной энергии')
-    print('Коэффициент детерминированности (R^2) - ', wind_model.score(temp_list, price_per_interval))
-    print('b0 = ', wind_model.intercept_)
-    print('b1 = ', wind_model.coef_)
-
-    plt.scatter(wind_energy_per_interval, price_per_interval, label='Реальные данные')
-    plt.scatter(wind_energy_per_interval, wind_model.predict(temp_list),
-                label='Данные полученные из регрессионной модели')
-    plt.legend(loc='upper right')
+    # wind_model = LinearRegression().fit(temp_list, price_per_interval)
 
     # Регрессия для общего потребления энергии
-    plt.figure(5)
-    plt.title('Зависимость цен на электроэнергию от потребление всей энергии')
-
     temp_list = numpy.array(energy_per_interval).reshape((-1, 1))
     general_regression_list.append(temp_list)
-    energy_model = LinearRegression().fit(temp_list, price_per_interval)
-    print('\nРегрессионный анализ для цен и потребления энергии')
-    print('Коэффициент детерминированности (R^2) - ', energy_model.score(temp_list, price_per_interval))
-    print('b0 = ', energy_model.intercept_)
-    print('b1 = ', energy_model.coef_)
-
-    plt.scatter(energy_per_interval, price_per_interval, label='Реальные данные')
-    plt.scatter(energy_per_interval, energy_model.predict(temp_list),
-                label='Данные полученные из регрессионной модели')
-    plt.legend(loc='upper right')
+    # energy_model = LinearRegression().fit(temp_list, price_per_interval)
 
     general_model = LinearRegression().fit(numpy.column_stack([general_regression_list[0], general_regression_list[1],
                                            general_regression_list[2]]), price_per_interval)
@@ -395,45 +526,40 @@ def main():
     # ---------------------------------------------------------------------------------------------
 
     # ----Построение графиков по разности максимальной и минимальной цен----
-    plt.figure(1)
-    plt.title('Разница между максимальной и минимальной ценой за электроэнергию в один день')
-    plt.plot(range(0, len(prices)), prices, label='Разница между max и min ценой')
-    plt.plot(range(len(prices) - len(average_thirty_prices), len(prices)), average_thirty_prices,
-             label='Скользящая средняя (30 дней)')
-    plt.plot(range(len(prices) - len(average_sixty_prices), len(prices)), average_sixty_prices,
-             label='Скользящая средняя (60 дней)')
-    plt.plot(range(len(prices) - len(average_ninety_prices), len(prices)), average_ninety_prices,
-             label='Скользящая средняя (90 дней)')
-    plt.xlabel('Дни')
-    plt.legend(loc='upper right')
-    plt.ylim(-1.0, 175.0)
-
     plt.figure(2)
-    plt.title('Скользящая средняя по временам года')
+    plt.title('Moving average by seasons')
     plt.subplot(2, 2, 1)
-    plt.title('Сравнение по зиме')
-    plt.plot(range(0, len(average_winter[0])), average_winter[0], label='За зиму 2019 года')
-    plt.plot(range(0, len(average_winter[1])), average_winter[1], label='За зиму 2020 года')
-    plt.plot(range(0, len(average_winter[2])), average_winter[2], label='За зиму 2021 года')
+    plt.title('Winter')
+    plt.plot(range(0, len(average_winter[0])), average_winter[0], label='2019')
+    plt.plot(range(0, len(average_winter[1])), average_winter[1], label='2020')
+    plt.plot(range(0, len(average_winter[2])), average_winter[2], label='2021')
+    plt.xlabel('Days')
+    plt.ylabel('Difference (Euro)')
     plt.legend(loc='upper right')
     plt.subplot(2, 2, 2)
-    plt.title('Сравнение по весне')
-    plt.plot(range(0, len(average_spring[0])), average_spring[0], label='За весну 2019 года')
-    plt.plot(range(0, len(average_spring[1])), average_spring[1], label='За весну 2020 года')
-    plt.plot(range(0, len(average_spring[2])), average_spring[2], label='За весну 2021 года')
+    plt.title('Spring')
+    plt.plot(range(0, len(average_spring[0])), average_spring[0], label='2019')
+    plt.plot(range(0, len(average_spring[1])), average_spring[1], label='2020')
+    plt.plot(range(0, len(average_spring[2])), average_spring[2], label='2021')
+    plt.xlabel('Days')
+    plt.ylabel('Difference (Euro)')
     plt.legend(loc='upper right')
     plt.subplot(2, 2, 3)
-    plt.title('Сравнение по лету')
-    plt.plot(range(0, len(average_summer[0])), average_summer[0], label='За лето 2019 года')
-    plt.plot(range(0, len(average_summer[1])), average_summer[1], label='За лето 2020 года')
-    plt.plot(range(0, len(average_summer[2])), average_summer[2], label='За лето 2021 года')
+    plt.title('Summer')
+    plt.plot(range(0, len(average_summer[0])), average_summer[0], label='2019')
+    plt.plot(range(0, len(average_summer[1])), average_summer[1], label='2020')
+    plt.plot(range(0, len(average_summer[2])), average_summer[2], label='2021')
+    plt.xlabel('Days')
+    plt.ylabel('Difference (Euro)')
     plt.ylim(0, 80)
     plt.legend(loc='upper right')
     plt.subplot(2, 2, 4)
-    plt.title('Сравнение по осени')
-    plt.plot(range(0, len(average_fall[0])), average_fall[0], label='За осень 2019 года')
-    plt.plot(range(0, len(average_fall[1])), average_fall[1], label='За осень 2020 года')
-    plt.plot(range(0, len(average_fall[2])), average_fall[2], label='За осень 2021 года')
+    plt.title('Autumn')
+    plt.plot(range(0, len(average_fall[0])), average_fall[0], label='2019')
+    plt.plot(range(0, len(average_fall[1])), average_fall[1], label='2020')
+    plt.plot(range(0, len(average_fall[2])), average_fall[2], label='2021')
+    plt.xlabel('Days')
+    plt.ylabel('Difference (Euro)')
     plt.legend(loc='upper right')
 
     plt.show()
